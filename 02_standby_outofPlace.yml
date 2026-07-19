@@ -1,5 +1,3 @@
-
-vi playbook/patching/02_standby_outofPlace.yml 
 ---
 - name: Prepare Standby Database for Out-of-Place Patching
   hosts: standby
@@ -187,11 +185,5 @@ vi playbook/patching/02_standby_outofPlace.yml
     
     - debug:
         var: db_status.stdout_lines	
-  
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
-cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
-ansible -i inventory/dataguard-prim-stby/ all -m ping
-cat -A playbooks/patching/04_primary_outofPlace.yml
-ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/ playbooks/patching/02_standby_outofPlace.yml
-ansible-playbook -i inventory/dataguard-prim-stby/ playbooks/patching/02_standby_outofPlace.yml
+
        
