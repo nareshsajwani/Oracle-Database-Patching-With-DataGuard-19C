@@ -81,9 +81,6 @@ listener_name=LISTENER
 listener2_name=LISTENER2
 ```
 
-> Note: host lines must **not** be commented out (no leading `#`) or Ansible
-> won't see them as inventory targets.
-
 ### 3. Place Gold Image
 
 Copy your gold image archive to:
