@@ -1,4 +1,3 @@
-vi playbooks/patching/07_validate.yml
 ---
 - name: Validation After Patching
   hosts: primary
@@ -66,12 +65,3 @@ vi playbooks/patching/07_validate.yml
     - name: Show Current Database Status
       debug:
         msg: "{{ version_info.stdout_lines }}"
-        
-        
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
-cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
-ansible -i inventory/dataguard-prim-stby/ all -m ping
-cat -A playbooks/patching/07_validate.yml
-ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/ playbooks/patching/07_validate.yml
-ansible-playbook -i inventory/dataguard-prim-stby/ playbooks/patching/07_validate.yml
-       		                
