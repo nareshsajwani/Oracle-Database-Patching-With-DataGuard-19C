@@ -123,15 +123,6 @@ edited:
 ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/hosts playbooks/patching/02_standby_outofplace.yml
 ```
 
-### 5. Rollback (if needed)
-
-```bash
-ansible-playbook -i inventory/dataguard-prim-stby/hosts playbooks/patching/rollback.yml
-```
-
-*(Document exactly what this reverts — Oracle Home symlink/profile only, or
-also DB state — so it's unambiguous during an incident.)*
-
 ---
 
 ## Required Variables
