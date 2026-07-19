@@ -1,5 +1,3 @@
-
-vi playbooks/patching/05_switchover_to_primary.yml
 ---
 - name: Prepare Standby Database for Switchback
   hosts: primary
@@ -46,7 +44,7 @@ vi playbooks/patching/05_switchover_to_primary.yml
     - name: Validate Standby Database before Switchback
       shell: |
         . {{ oracle_env }} >/dev/null 2>&1
-        dgmgrl -silent dga/India#1947 <<EOF
+        dgmgrl -silent dga/<password> <<EOF
         validate database '{{ primary_db_unique_name }}';
         exit
         EOF
@@ -74,7 +72,7 @@ vi playbooks/patching/05_switchover_to_primary.yml
     - name: Perform Switchback to Primary
       shell: |
         . {{ oracle_env }} >/dev/null 2>&1
-        dgmgrl -silent dga/India#1947 <<EOF
+        dgmgrl -silent dga/<password> <<EOF
         switchover to '{{ primary_db_unique_name }}';
         exit
         EOF
@@ -100,13 +98,4 @@ vi playbooks/patching/05_switchover_to_primary.yml
       register: db_status
 
     - debug:
-        var: db_status.stdout_lines
-		
-		
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
-cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
-ansible -i inventory/dataguard-prim-stby/ all -m ping
-cat -A playbooks/patching/05_switchover_to_primary.yml
-ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/ playbooks/patching/05_switchover_to_primary.yml
-ansible-playbook -i inventory/dataguard-prim-stby/ playbooks/patching/05_switchover_to_primary.yml
-       				
+        var: db_status.stdout_lines       				
