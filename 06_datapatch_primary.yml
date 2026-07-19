@@ -1,5 +1,3 @@
-
-vi playbooks/patching/06_datapatch_primary.yml
 ---
 - name: Run Datapatch on New Primary
   hosts: primary
@@ -20,12 +18,4 @@ vi playbooks/patching/06_datapatch_primary.yml
 
     - name: Show datapatch output
       debug:
-        msg: "{{ datapatch_result.stdout_lines }}"
-        
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
-cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
-ansible -i inventory/dataguard-prim-stby/ all -m ping
-cat -A playbooks/patching/06_datapatch_primary.yml
-ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/ playbooks/patching/06_datapatch_primary.yml
-ansible-playbook -i inventory/dataguard-prim-stby/ playbooks/patching/06_datapatch_primary.yml
-       		        
+        msg: "{{ datapatch_result.stdout_lines }}"       		        
