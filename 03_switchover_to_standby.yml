@@ -1,0 +1,117 @@
+cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
+vi playbooks/patching/03_switchover_to_standby.yml
+
+---
+- name: Prepare Standby Database for Switchover
+  hosts: standby
+  become: yes
+  become_user: oracle
+
+  vars:
+    oracle_env: /home/oracle/.bash_profile
+
+  tasks:
+
+    #######################################################################
+    # Get DB_UNIQUE_NAME
+    #######################################################################
+
+    - name: Get DB Unique Name
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+
+        sqlplus -s / as sysdba <<EOF | tail -1
+        set pages 0
+        set feedback off
+        set verify off
+        set heading off
+        set pagesize 0
+        set echo off
+        set termout on
+        set trimspool on
+
+        select db_unique_name from v\$database;
+
+        exit
+        EOF
+      register: db_unique_name
+
+    - name: Save DB_UNIQUE_NAME
+      set_fact:
+        standby_db_unique_name: "{{ db_unique_name.stdout | trim }}"
+
+    - debug:
+        msg: "Standby DB_UNIQUE_NAME = {{ standby_db_unique_name }}"
+
+    ########################################################################
+    # Validate database
+    ########################################################################
+
+    - name: Validate Standby Database before Switchover
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        dgmgrl -silent dga/India#1947 <<EOF
+        validate database '{{ standby_db_unique_name }}';
+        exit
+        EOF
+      register: validate_output
+
+    - name: Validate database Command Output
+      debug:
+        msg: |
+          {{ validate_output.stdout }}
+
+    - name: Wait for confirmation before switchover
+      pause:
+        prompt: |
+
+          =============================================
+
+          Validation completed successfully.
+
+          Press ENTER to start Data Guard Switchover
+          Press Ctrl+C then A to abort the playbook.
+
+          =============================================
+
+    ########################################################################
+    # Switchover database
+    ########################################################################
+
+    - name: Perform Switchover to Standby
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        dgmgrl -silent dga/India#1947 <<EOF
+        switchover to '{{ standby_db_unique_name }}';
+        exit
+        EOF
+      register: switchover_output
+
+    - name: Validate database Command Output
+      debug:
+        msg: |
+          {{ switchover_output.stdout }}
+
+    ########################################################################
+    # Validation
+    ########################################################################
+
+    - name: Validate Database Role Post Switchover
+      shell: |
+        . {{ oracle_env }}
+        sqlplus -s / as sysdba <<EOF
+        set heading off pages 0 feedback off
+        select database_role||' - '||open_mode from v\$database;
+        exit
+        EOF
+      register: db_status
+
+    - debug:
+        var: db_status.stdout_lines        
+        
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
+cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
+ansible -i inventory/dataguard-prim-stby/ all -m ping
+cat -A playbooks/patching/04_primary_outofPlace.yml
+ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/ playbooks/patching/03_switchover_to_standby.yml
+ansible-playbook -i inventory/dataguard-prim-stby/ playbooks/patching/03_switchover_to_standby.yml        

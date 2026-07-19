@@ -1,0 +1,77 @@
+vi playbooks/patching/07_validate.yml
+---
+- name: Validation After Patching
+  hosts: primary
+  become: yes
+  become_user: oracle
+
+  vars:
+    oracle_env: /home/oracle/.bash_profile
+
+  tasks:
+
+    #######################################################################
+    # Validate Oracle Version and SQL Patch
+    #######################################################################
+
+    - name: Check Oracle Version and SQL Patches
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+
+        sqlplus -s / as sysdba <<EOFSQL
+        COLUMN action_time FORMAT A40
+        COLUMN action FORMAT A10
+        COLUMN comments FORMAT A30
+        COLUMN description FORMAT A60
+        COLUMN namespace FORMAT A20
+        COLUMN status FORMAT A14
+        COL comp_id FORMAT A10
+        COL version FORMAT A11
+        COL status FORMAT A10
+        COL comp_name FORMAT A37
+
+        SET pagesize 300
+        SET linesize 300
+
+        SELECT *
+        FROM (
+            SELECT action_time,
+                   action,
+                   status,
+                   description,
+                   patch_id
+            FROM sys.dba_registry_sqlpatch
+            WHERE action='APPLY'
+              AND status='SUCCESS'
+              AND description LIKE 'Database Release Update%'
+            ORDER BY action_time DESC
+        )
+        WHERE ROWNUM = 1;
+
+        SELECT comp_id,
+               comp_name,
+               version,
+               status
+        FROM dba_registry;
+
+        EXIT
+        EOFSQL
+      register: version_info
+      changed_when: false
+
+    #######################################################################
+    # Display Output
+    #######################################################################
+
+    - name: Show Current Database Status
+      debug:
+        msg: "{{ version_info.stdout_lines }}"
+        
+        
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
+cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
+ansible -i inventory/dataguard-prim-stby/ all -m ping
+cat -A playbooks/patching/07_validate.yml
+ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/ playbooks/patching/07_validate.yml
+ansible-playbook -i inventory/dataguard-prim-stby/ playbooks/patching/07_validate.yml
+       		                

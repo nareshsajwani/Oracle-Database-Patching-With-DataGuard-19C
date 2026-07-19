@@ -1,0 +1,198 @@
+
+vi playbook/patching/04_primary_outofPlace.yml 
+
+---
+- name: Prepare Primary Database for Out-of-Place Patching
+  hosts: primary
+
+  vars:
+    oracle_env: /home/oracle/.bash_profile
+
+  tasks:
+
+    ############################################################
+    # Get DB_UNIQUE_NAME
+    ############################################################
+
+    - name: Get Primary DB_UNIQUE_NAME
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        sqlplus -s / as sysdba <<EOF
+        set heading off feedback off verify off pages 0
+        select db_unique_name from v\$database;
+        exit;
+        EOF
+      register: db_unique_name
+      become: yes
+      become_user: oracle
+
+    - name: Save DB_UNIQUE_NAME
+      set_fact:
+        standby_db_unique_name: "{{ db_unique_name.stdout | trim }}"
+
+    - debug:
+        msg: "Primary DB_UNIQUE_NAME = {{ standby_db_unique_name }}"
+
+    ############################################################
+    # Stop Listeners
+    ############################################################
+
+    - name: Stop Listener1
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        lsnrctl stop {{ listener_name }}
+      ignore_errors: yes
+      become: yes
+      become_user: oracle
+
+    - name: Stop Listener2
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        lsnrctl stop {{ listener2_name }}
+      ignore_errors: yes
+      become: yes
+      become_user: oracle
+
+    ############################################################
+    # Stop Redo Apply
+    ############################################################
+
+    - name: Stop Managed Recovery
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        dgmgrl -silent / <<EOF
+        edit database '{{ standby_db_unique_name }}' set state='APPLY-OFF';
+        exit
+        EOF
+      become: yes
+      become_user: oracle
+
+    ############################################################
+    # Shutdown Primary
+    ############################################################
+
+    - name: Shutdown Primary
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        sqlplus -s / as sysdba <<EOF
+        shutdown immediate;
+        exit
+        EOF
+      become: yes
+      become_user: oracle
+
+    ########################################################
+    # Change Oracle Home in bash_profile
+    ########################################################
+    
+    - name: Replace Oracle Home in .bash_profile
+      replace:
+        path: /home/oracle/.bash_profile
+        regexp: "{{ oracle_home }}"
+        replace: "{{ new_oracle_home }}"
+      become: yes
+      become_user: oracle
+    
+    
+    ########################################################
+    # Change Oracle Home in /etc/oratab
+    ########################################################
+    
+    - name: Replace Oracle Home in oratab
+      replace:
+        path: /etc/oratab
+        regexp: "{{ oracle_home }}"
+        replace: "{{ new_oracle_home }}"
+      become: yes
+      become_user: root
+    
+    ############################################################
+    # Reload Profile
+    ############################################################
+
+    - name: Reload Oracle Profile
+      shell: |
+        . /home/oracle/.bash_profile >/dev/null 2>&1
+        echo $ORACLE_HOME
+      register: new_home
+      become: yes
+      become_user: oracle
+
+    - debug:
+        var: new_home.stdout
+      become: yes
+      become_user: oracle
+
+    ############################################################
+    # Start Listeners
+    ############################################################
+
+    - name: Start Listener1
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        lsnrctl start {{ listener_name }}
+      become: yes
+      become_user: oracle
+
+    - name: Start Listener2
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        lsnrctl start {{ listener2_name }}
+      ignore_errors: yes
+      become: yes
+      become_user: oracle
+
+    ############################################################
+    # Startup Primary in Mount Mode
+    ############################################################
+
+    - name: Startup Primary Mount
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        sqlplus -s / as sysdba <<EOF
+        startup mount;
+        exit
+        EOF
+      become: yes
+      become_user: oracle
+
+    ############################################################
+    # Start Apply
+    ############################################################
+
+    - name: Enable Managed Recovery
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        dgmgrl -silent / <<EOF
+        edit database '{{ standby_db_unique_name }}' set state='APPLY-ON';
+        exit
+        EOF
+      become: yes
+      become_user: oracle
+
+    ############################################################
+    # Validation
+    ############################################################
+
+    - name: Validate Database Role
+      shell: |
+        . {{ oracle_env }} >/dev/null 2>&1
+        sqlplus -s / as sysdba <<EOF
+        set heading off pages 0 feedback off
+        select database_role||' - '||open_mode from v\$database;
+        exit
+        EOF
+      register: db_status
+      become: yes
+      become_user: oracle
+
+    - debug:
+        var: db_status.stdout_lines
+		
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
+cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
+ansible -i inventory/dataguard-prim-stby/ all -m ping
+cat -A playbooks/patching/04_primary_outofPlace.yml
+ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/ playbooks/patching/04_primary_outofPlace.yml
+ansible-playbook -i inventory/dataguard-prim-stby/ playbooks/patching/04_primary_outofPlace.yml
+       		

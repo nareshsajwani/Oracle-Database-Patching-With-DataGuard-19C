@@ -1,0 +1,121 @@
+# Prepare New Home Playbook
+cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
+cat > playbooks/patching/01_prepare_new_home.yml <<< 'EOF'
+---
+- name: 01 Prepare New Oracle Home from Gold Image (Both Servers) 
+  hosts: all
+
+  tasks:
+
+    - name: Create patch stage and new home directories 
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:  
+        - "{{ patch_stage }}"
+        - "{{ new_oracle_home }}"
+      become: yes
+      become user: oracle
+
+    - name: Copy gold image to server
+      copy:
+        src: "/home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace/files/19c/gold_images/RHEL8_DB1930_GoldImage/{{ gold_image_zip }}" 
+        dest: "{{ patch_stage }}/{{ gold_image_zip }}"
+        mode: '0644'
+      become: yes
+      become user: oracle
+      
+    - name: Unzip Gold Image to new Oracle Home
+      shell: unzip ( patch_stage }}/{{ gold_image_zip }} -d {{ new_oracle_home }} 
+      args:
+        creates: "{{ new_oracle_home }}/bin/sqlplus"
+      become: yes
+      become user: oracle
+      
+    - name: Backup and update db_install.rsp
+      ansible.builtin.shell: |
+        ed {{ new_oracle_home }}/install/response/
+        cp -p db_install.rsp db_install.rsp.org 
+        vm_hostname=$(hostname -s)
+        sed -1 "s#/mnt/app/oracle/product/19.3.0/db_1_new#{{ new_oracle_home ))#g" db_install.rsp 
+        sed -1 "s/poc-naresh-gold/$vm_hostname/g" db_install.rsp
+        echo "===Updated response file ===="
+        grep -E "ORACLE_HOME | ORACLE_HOSTNAME" db_install.rsp
+      args:
+        executable: /bin/bash
+      become: yes
+      become user: oracle
+
+    - name: Run Prereqs and Silent Installation
+      ansible.builtin.shell: |
+        export ORACLE_SID=null
+        export ORACLE_HOME-({ new_oracle_home }}
+        export PATH=$ORACLE_HOME/bin:$PATH
+        export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+        export CV_ASSUME_DISTID=OEL7 
+        echo "Running execute Prereqs...
+        $ORACLE_HOME/runInstaller -execute Prereqs -silent -responseFile (new_oracle_home }}/install/response/db_install.rsp 
+        echo "Running silent install..."
+        $ORACLE_HOME/runInstaller -silent -responseFile {{ new_oracle_home }}/install/response/db_install.rsp
+      args:
+        executable: /bin/bash
+      become: yes
+      become_user: oracle
+
+    - name: Run root.sh
+      shell: "{{ new_oracle_home }}/root.sh"
+      become: yes
+      become_user: root  
+
+    - name: Copy dbs and network/admin from old home 
+      ansible.builtin.copy:
+        src: "{{ oracle_home }}/{{ item.src }}"
+        dest: "{{ new_oracle_home }}/{{item.dest }}" 
+        remote_src: yes
+      loop:
+        - { src: "dbs/", dest: "dbs/" }
+        - { src: "network/admin/", dest: "network/admin/" }
+      become: yes
+      become_user: oracle
+      
+    - name: Final verification
+      ansible.builtin. shell: I
+        export ORACLE_SID=null
+        export ORACLE_HOME={{ new_oracle_home }}
+        export PATH=$ORACLE_HOME/bin:$PATH
+        export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+        which sqlplus
+        which opatch
+        opatch version
+        opatch lspatches
+        sqlplus / as sysdba <<< "exit;" || echo "SQLPlus check completed"
+      args:
+          executable: /bin/bash
+      become: yes
+      become_user: oracle
+
+    - name: Change ORACLE_HOME path in listener.ora File
+      ansible.builtin.shell: |
+        cd {{ new_oracle_home }}/network/admi
+        sed -i "s#{{ oracle_home }}#{{ new_oracle_home }}#g" listener.ora
+        echo "==== Updated Listener file ===="
+      args:
+          executable: /bin/bash
+      become: yes
+      become_user: oracle
+     
+    - name: Cleanup gold image zip
+      ansible.builtin.file:
+        path: "{{ patch_stage }}/{{ gold_image_zip }}"
+        state: absent
+        become: yes
+        become_user: oracle
+EOF  
+  
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
+cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
+ansible -i inventory/dataguard-prim-stby/ all -m ping
+cat -A playbooks/patching/01_prepare_new_home.yml
+ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/ playbooks/patching/01_prepare_new_home.yml 
+ansible-playbook -i inventory/dataguard-prim-stby/ playbooks/patching/01_prepare_new_home.yml
