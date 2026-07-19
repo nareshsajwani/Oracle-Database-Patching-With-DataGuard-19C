@@ -1,6 +1,4 @@
 # Prepare New Home Playbook
-cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
-cat > playbooks/patching/01_prepare_new_home.yml <<< 'EOF'
 ---
 - name: 01 Prepare New Oracle Home from Gold Image (Both Servers) 
   hosts: all
@@ -111,11 +109,5 @@ cat > playbooks/patching/01_prepare_new_home.yml <<< 'EOF'
         state: absent
         become: yes
         become_user: oracle
-EOF  
   
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
-cd /home/naresh.sajwani/Learning/Ansible/oracle-ansible-dg-outofplace
-ansible -i inventory/dataguard-prim-stby/ all -m ping
-cat -A playbooks/patching/01_prepare_new_home.yml
-ansible-playbook --syntax-check -i inventory/dataguard-prim-stby/ playbooks/patching/01_prepare_new_home.yml 
-ansible-playbook -i inventory/dataguard-prim-stby/ playbooks/patching/01_prepare_new_home.yml
+  
